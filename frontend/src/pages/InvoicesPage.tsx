@@ -10,7 +10,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { api, InvoiceItem } from "../api";
+import { api, InvoiceItem, formatCodeClean } from "../api";
 import { PayPalCheckoutModal } from "../components/PayPalCheckoutModal";
 
 export const InvoicesPage: React.FC = () => {
@@ -158,7 +158,7 @@ export const InvoicesPage: React.FC = () => {
               {filteredInvoices.length > 0 ? (
                 filteredInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-4 px-4 font-mono font-bold text-blue-600">{inv.invoice_number}</td>
+                    <td className="py-4 px-4 font-mono font-bold text-blue-600">{formatCodeClean(inv.invoice_number)}</td>
                     <td className="py-4 px-4">
                       <div className="font-semibold text-slate-900">{inv.recipient_name}</div>
                       <div className="text-[11px] text-slate-500 font-mono">{inv.recipient_email}</div>

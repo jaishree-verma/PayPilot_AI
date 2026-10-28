@@ -230,3 +230,13 @@ export const api = {
   seedDemo: () => fetchJSON<any>("/seed", { method: "POST" }),
   resetDemo: () => fetchJSON<any>("/seed/reset", { method: "POST" }),
 };
+
+/**
+ * Replaces hyphens (-) in identifiers and codes with clean spaced colons
+ * Example: INV-2026-0005 -> INV : 2026 : 0005
+ */
+export const formatCodeClean = (code?: string): string => {
+  if (!code) return "";
+  return code.replace(/-/g, " : ");
+};
+

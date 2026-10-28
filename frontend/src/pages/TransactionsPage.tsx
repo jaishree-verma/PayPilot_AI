@@ -7,7 +7,7 @@ import {
   CreditCard,
   CheckCircle2,
 } from "lucide-react";
-import { api, TransactionItem } from "../api";
+import { api, TransactionItem, formatCodeClean } from "../api";
 
 export const TransactionsPage: React.FC = () => {
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
@@ -110,7 +110,7 @@ export const TransactionsPage: React.FC = () => {
               {transactions.length > 0 ? (
                 transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3.5 px-4 font-mono font-medium text-blue-600">{tx.reference_id}</td>
+                    <td className="py-3.5 px-4 font-mono font-medium text-blue-600">{formatCodeClean(tx.reference_id)}</td>
                     <td className="py-3.5 px-4">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${

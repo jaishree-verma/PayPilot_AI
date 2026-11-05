@@ -1,4 +1,4 @@
-# PayPilot AI — AI-Powered Autonomous Payment Platform
+# PayPilot: AI-powered financial operations platform with controlled payment execution.
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)

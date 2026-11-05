@@ -16,10 +16,10 @@ For comprehensive technical, architectural, and evaluation details, consult our 
 
 | Document | Description |
 |---|---|
-| 📖 [**`PROJECT_DOCUMENTATION.md`**](./PROJECT_DOCUMENTATION.md) | **Master Project & Technical Document** covering all 20 sections: problem statement, proposed solution, technology stack rationale, AI extraction architecture, PayPal Sandbox integration table, database schemas, security safeguards, and implementation roadmap. |
-| 🏛️ [**`docs/ARCHITECTURE.md`**](./docs/ARCHITECTURE.md) | **Detailed Architectural Specification** with component diagrams, 4-tier security boundary model, and end-to-end Mermaid sequence diagrams. |
-| 🔌 [**`docs/API_DOCUMENTATION.md`**](./docs/API_DOCUMENTATION.md) | **API Reference** documenting all endpoints, request/response models, query parameters, error codes, and curl examples. |
-| 🎬 [**`docs/DEMO_GUIDE.md`**](./docs/DEMO_GUIDE.md) | **3-Minute Hackathon Evaluation & Demo Guide** with step-by-step presentation timeline, exact speaker narrative, screen actions, and edge-case demos. |
+|  [**`PROJECT_DOCUMENTATION.md`**](./PROJECT_DOCUMENTATION.md) | **Master Project & Technical Document** covering all 20 sections: problem statement, proposed solution, technology stack rationale, AI extraction architecture, PayPal Sandbox integration table, database schemas, security safeguards, and implementation roadmap. |
+|  [**`docs/ARCHITECTURE.md`**](./docs/ARCHITECTURE.md) | **Detailed Architectural Specification** with component diagrams, 4-tier security boundary model, and end-to-end Mermaid sequence diagrams. |
+|  [**`docs/API_DOCUMENTATION.md`**](./docs/API_DOCUMENTATION.md) | **API Reference** documenting all endpoints, request/response models, query parameters, error codes, and curl examples. |
+|  [**`docs/DEMO_GUIDE.md`**](./docs/DEMO_GUIDE.md) | **3-Minute Hackathon Evaluation & Demo Guide** with step-by-step presentation timeline, exact speaker narrative, screen actions, and edge-case demos. |
 
 ---
 
@@ -78,7 +78,7 @@ graph TB
 
 ---
 
-## 💎 The 3 Integrated Capabilities
+## The 3 Integrated Capabilities
 
 ### 1. AI Payment Operations Agent (`/agent`)
 - **Natural Language Parsing**: Accepts requests such as *"Create a $250 invoice for Alex for website development"* or *"Prepare a $120 contractor payout for the approved design task"*.
@@ -102,7 +102,7 @@ graph TB
 
 ---
 
-## 🎨 Clean White & Blue Fintech Design System
+## Clean White & Blue Fintech Design System
 
 PayPilot AI features a modern, accessible **white and blue fintech theme** inspired by leading payment platforms:
 - **Primary Color:** Solid Blue (`#2563EB`)
@@ -113,7 +113,7 @@ PayPilot AI features a modern, accessible **white and blue fintech theme** inspi
 
 ---
 
-## ⚡ 3-Minute Hackathon Demonstration Script
+## 3-Minute Hackathon Demonstration Script
 
 Judges can test the complete, functioning application from start to finish in 3 minutes:
 
@@ -129,7 +129,7 @@ Judges can test the complete, functioning application from start to finish in 3 
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Backend**: Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0, SQLite (PostgreSQL-ready), HTTPX, Pytest.
 - **Frontend**: React 19, TypeScript, Vite 6, Tailwind CSS v4, Recharts, Lucide Icons, React Router v7.
@@ -138,7 +138,7 @@ Judges can test the complete, functioning application from start to finish in 3 
 
 ---
 
-## 💻 Setup & Run Instructions
+## Setup & Run Instructions
 
 ### Prerequisites
 - Python 3.10+
@@ -190,7 +190,7 @@ Open **`http://localhost:5173`** in your browser.
 
 ---
 
-## 🧪 Running Automated Tests
+## Running Automated Tests
 
 Run the backend test suite:
 ```bash
@@ -211,6 +211,6 @@ python -m pytest -o pythonpath=. tests/test_paypilot.py -v
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](./LICENSE).

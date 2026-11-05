@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Menu,
   Sparkles,
-  ShieldCheck,
   Settings,
-  Bell,
-  Search,
-  ExternalLink,
 } from "lucide-react";
-import { api, PayPalConfig } from "../api";
+import { api } from "../api";
+import { useApp } from "../context/AppContext";
+import { useToast } from "../context/ToastContext";
 
 interface TopNavbarProps {
   onToggleMobileSidebar: () => void;
@@ -23,28 +21,20 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onRefreshData,
 }) => {
   const location = useLocation();
-  const [config, setConfig] = useState<PayPalConfig | null>(null);
+  const { config, user, refreshConfig } = useApp();
+  const { showToast } = useToast();
   const [seeding, setSeeding] = useState(false);
-
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const data = await api.getPayPalConfig();
-        setConfig(data);
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchConfig();
-  }, []);
 
   const handleSeed = async () => {
     setSeeding(true);
     try {
       await api.seedDemo();
+      await refreshConfig();
+      showToast("Demo invoices, payouts, and ledger data seeded successfully!", "success", "Demo Ready");
       if (onRefreshData) onRefreshData();
-    } catch (e) {
+    } catch (e: any) {
       console.error("Seed error", e);
+      showToast(e.message || "Failed to seed demo data", "error");
     } finally {
       setSeeding(false);
     }
@@ -73,13 +63,22 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
     }
   };
 
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "AM";
+
   return (
     <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
       {/* Left: Mobile Toggle & Page Title */}
       <div className="flex items-center space-x-3">
         <button
           onClick={onToggleMobileSidebar}
-          className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
+          className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
           aria-label="Open Sidebar"
         >
           <Menu className="w-5 h-5" />
@@ -125,22 +124,26 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           title="Populate test data for judge evaluation"
         >
           <Sparkles className={`w-3.5 h-3.5 text-blue-600 ${seeding ? "animate-spin" : ""}`} />
-          <span className="hidden md:inline">Seed Demo Data</span>
+          <span className="hidden md:inline">{seeding ? "Seeding..." : "Seed Demo Data"}</span>
         </button>
 
         {/* Settings Button */}
         <button
           onClick={onOpenSettings}
-          className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition"
+          className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
           title="Settings & Credentials"
         >
           <Settings className="w-4 h-4" />
         </button>
 
         {/* User Avatar */}
-        <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs">
-          AM
-        </div>
+        <button
+          onClick={onOpenSettings}
+          className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center shadow-2xs transition cursor-pointer"
+          title={`${user?.name || "Alex Mercer"} (${user?.business_name || "Mercer Tech Labs"})`}
+        >
+          {initials}
+        </button>
       </div>
     </header>
   );

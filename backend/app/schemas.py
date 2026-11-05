@@ -1,6 +1,46 @@
 import datetime
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
+import html
+from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 from typing import Optional, List, Dict, Any
+
+def sanitize_string(val: Optional[str]) -> Optional[str]:
+    if val is None:
+        return None
+    # Strip dangerous HTML/script injection tags while preserving clean text
+    cleaned = html.escape(val.strip())
+    return cleaned
+
+# User Profile Schemas
+class UserProfileBase(BaseModel):
+    name: str
+    business_name: str
+    email: EmailStr
+    currency: str = "USD"
+    sandbox_mode: bool = True
+
+    @field_validator("name", "business_name", mode="before")
+    @classmethod
+    def sanitize_names(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
+
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    business_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    currency: Optional[str] = None
+    recorded_balance: Optional[float] = None
+    sandbox_mode: Optional[bool] = None
+
+    @field_validator("name", "business_name", mode="before")
+    @classmethod
+    def sanitize_names(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
+
+class UserProfileResponse(UserProfileBase):
+    id: int
+    recorded_balance: float
+    created_at: datetime.datetime
+    model_config = ConfigDict(from_attributes=True)
 
 # Recipient Schemas
 class RecipientBase(BaseModel):
@@ -11,8 +51,26 @@ class RecipientBase(BaseModel):
     verified: Optional[bool] = True
     notes: Optional[str] = None
 
+    @field_validator("name", "notes", mode="before")
+    @classmethod
+    def sanitize_text(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
+
 class RecipientCreate(RecipientBase):
     pass
+
+class RecipientUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    paypal_email: Optional[EmailStr] = None
+    category: Optional[str] = None
+    verified: Optional[bool] = None
+    notes: Optional[str] = None
+
+    @field_validator("name", "notes", mode="before")
+    @classmethod
+    def sanitize_text(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
 
 class RecipientResponse(RecipientBase):
     id: int
@@ -27,6 +85,11 @@ class InvoiceCreate(BaseModel):
     currency: str = Field(default="USD", pattern="^[A-Z]{3}$")
     description: str
     due_date: Optional[datetime.datetime] = None
+
+    @field_validator("recipient_name", "description", mode="before")
+    @classmethod
+    def sanitize_text(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
 
 class InvoiceUpdate(BaseModel):
     status: Optional[str] = None
@@ -60,6 +123,20 @@ class PayoutCreate(BaseModel):
     currency: str = Field(default="USD", pattern="^[A-Z]{3}$")
     purpose: str
     task_id: Optional[str] = None
+
+    @field_validator("recipient_name", "purpose", mode="before")
+    @classmethod
+    def sanitize_payout(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
+
+class PayoutUpdate(BaseModel):
+    purpose: Optional[str] = None
+    status: Optional[str] = None
+
+    @field_validator("purpose", mode="before")
+    @classmethod
+    def sanitize_purpose(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
 
 class PayoutApprove(BaseModel):
     approved_by: Optional[str] = "Operator"
@@ -134,6 +211,25 @@ class WorkflowRuleCreate(BaseModel):
     requires_approval: bool = True
     is_active: bool = True
 
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def sanitize_wf(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
+
+class WorkflowRuleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    trigger_type: Optional[str] = None
+    condition_expression: Optional[str] = None
+    action_type: Optional[str] = None
+    requires_approval: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def sanitize_wf(cls, v):
+        return sanitize_string(v) if isinstance(v, str) else v
+
 class WorkflowRuleResponse(BaseModel):
     id: int
     name: str
@@ -174,16 +270,16 @@ class ExtractedEntities(BaseModel):
 
 class AIActionPlanModel(BaseModel):
     plan_id: Optional[int] = None
-    intent: str
-    entities: ExtractedEntities
-    proposed_action: str
-    reasoning: str
-    risk_level: str  # LOW, MEDIUM, HIGH
-    requires_approval: bool
-    is_allowed: bool
+    intent: str = "UNKNOWN"
+    entities: Optional[ExtractedEntities] = Field(default_factory=ExtractedEntities)
+    proposed_action: Optional[str] = None
+    reasoning: Optional[str] = ""
+    risk_level: Optional[str] = "LOW"  # LOW, MEDIUM, HIGH
+    requires_approval: bool = True
+    is_allowed: bool = True
     blocking_reason: Optional[str] = None
     follow_up_question: Optional[str] = None
-    consequences: str
+    consequences: Optional[str] = ""
 
 class AIChatResponse(BaseModel):
     message: str
@@ -236,3 +332,17 @@ class AuditEventResponse(BaseModel):
     details: Optional[str] = None
     timestamp: datetime.datetime
     model_config = ConfigDict(from_attributes=True)
+
+# General Standard Responses
+class StandardSuccessResponse(BaseModel):
+    success: bool = True
+    message: str
+    data: Optional[Dict[str, Any]] = None
+
+class PayPalWebhookEvent(BaseModel):
+    id: Optional[str] = None
+    event_type: str
+    resource_type: Optional[str] = None
+    summary: Optional[str] = None
+    resource: Dict[str, Any] = Field(default_factory=dict)
+

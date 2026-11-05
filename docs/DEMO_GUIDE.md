@@ -1,10 +1,10 @@
-# PayPilot AI — 3-Minute Hackathon Evaluation & Demo Guide
+# PayPilot AI - 3-Minute Hackathon Evaluation & Demo Guide
 
 This guide provides a reproducible, step-by-step presentation script designed for hackathon judges, evaluators, and video recordings.
 
 ---
 
-## 🕒 Three-Minute Live Demo Timeline
+##  Three-Minute Live Demo Timeline
 
 ```
 0:00 ─── 0:30 │ Introduction & Business Context
@@ -16,9 +16,9 @@ This guide provides a reproducible, step-by-step presentation script designed fo
 
 ---
 
-## 🎬 Step-by-Step Speaker Script & Screen Actions
+##  Step-by-Step Speaker Script & Screen Actions
 
-### Part 1: The Context & Problem (0:00 – 0:30)
+### Part 1: The Context & Problem (0:00 - 0:30)
 - **Screen:** Open [`http://localhost:5173/`](http://localhost:5173/) on the **Dashboard** or **Landing Page**.
 - **Action:** Click **"Seed Demo Data"** in the top navigation bar to ensure fresh sample data is loaded.
 - **Spoken Narrative:**
@@ -26,11 +26,11 @@ This guide provides a reproducible, step-by-step presentation script designed fo
   >
   > Traditional dashboards show you what happened in the past, but can't take action. On the other hand, generic AI chatbots hallucinate and can't be trusted with your money.
   >
-  > Meet PayPilot AI — an intelligent payment operations agent combining the official PayPal Developer Platform with a controlled, auditable AI agent."*
+  > Meet PayPilot AI - an intelligent payment operations agent combining the official PayPal Developer Platform with a controlled, auditable AI agent."*
 
 ---
 
-### Part 2: Natural-Language Invoicing with AI Agent (0:30 – 1:15)
+### Part 2: Natural-Language Invoicing with AI Agent (0:30 - 1:15)
 - **Screen:** Click **"AI Agent"** in the left sidebar.
 - **Action:** Click the suggested prompt chip:  
   `"Create an invoice for $250."`  
@@ -39,7 +39,7 @@ This guide provides a reproducible, step-by-step presentation script designed fo
   - The AI parses the recipient (`Alex`), amount (`$250.00 USD`), and deliverable (`Website development`).
   - It generates a **Structured Payment Action Plan Card** with a blue accent bar and a `LOW` risk rating.
 - **Spoken Narrative:**
-  > *"Instead of filling out multiple form fields, I ask our agent naturally. Notice how the agent doesn't just reply with conversational text — it structures a validated action plan. 
+  > *"Instead of filling out multiple form fields, I ask our agent naturally. Notice how the agent doesn't just reply with conversational text - it structures a validated action plan. 
   > 
   > Crucially, as a core safety safeguard, the AI cannot directly mutate our bank or database. It demands human operator authorization."*
 - **Action:** Click the green **"Authorize & Execute Action"** button.
@@ -47,7 +47,7 @@ This guide provides a reproducible, step-by-step presentation script designed fo
 
 ---
 
-### Part 3: PayPal Sandbox Checkout & Reconciliation (1:15 – 2:00)
+### Part 3: PayPal Sandbox Checkout & Reconciliation (1:15 - 2:00)
 - **Screen:** Click **"Invoices"** in the sidebar.
 - **Action:** Locate invoice `INV-2026-0004` (Status: `SENT`). Click **"Pay via PayPal"**.
 - **Action:** In the modal, click **"Create PayPal Sandbox Order"**.
@@ -60,7 +60,7 @@ This guide provides a reproducible, step-by-step presentation script designed fo
 
 ---
 
-### Part 4: Gated Contractor Payout & Duplicate Prevention (2:00 – 2:40)
+### Part 4: Gated Contractor Payout & Duplicate Prevention (2:00 - 2:40)
 - **Screen:** Return to **"AI Agent"** in the sidebar.
 - **Action:** Type or click:  
   `"Prepare a $120 contractor payout for the approved design task"`
@@ -77,7 +77,7 @@ This guide provides a reproducible, step-by-step presentation script designed fo
 
 ---
 
-### Part 5: Grounded Business Copilot & Audit Trail (2:40 – 3:00)
+### Part 5: Grounded Business Copilot & Audit Trail (2:40 - 3:00)
 - **Screen:** In **"AI Agent"**, click the prompt chip:  
   `"Show my overdue invoices."`
 - **Observation:** The AI responds with exact overdue invoice numbers (`INV-2026-0003`) and amount (`$1,200.00 USD`) pulled directly from SQLite.
@@ -92,7 +92,7 @@ This guide provides a reproducible, step-by-step presentation script designed fo
 
 ---
 
-## 🛡️ Failure & Edge Case Recovery Demo
+## ️ Failure & Edge Case Recovery Demo
 
 Judges can also verify negative test cases:
 

@@ -1,3 +1,14 @@
+export interface UserProfile {
+  id: number;
+  name: string;
+  business_name: string;
+  email: string;
+  currency: string;
+  recorded_balance: number;
+  sandbox_mode: boolean;
+  created_at: string;
+}
+
 export interface FinancialStats {
   total_incoming: number;
   total_outgoing: number;
@@ -167,11 +178,18 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // User Profile
+  getUserProfile: () => fetchJSON<UserProfile>("/user/profile"),
+  updateUserProfile: (data: Partial<UserProfile>) =>
+    fetchJSON<UserProfile>("/user/profile", { method: "PUT", body: JSON.stringify(data) }),
+
   // Config
   getPayPalConfig: () => fetchJSON<PayPalConfig>("/paypal/config"),
   testPayPalConnection: () => fetchJSON<{ connected: boolean; message: string }>("/paypal/test-connection", { method: "POST" }),
   updatePayPalConfig: (data: { client_id: string; client_secret: string; gemini_api_key?: string }) =>
     fetchJSON<any>("/paypal/update-config", { method: "POST", body: JSON.stringify(data) }),
+  simulateWebhook: (event: { event_type: string; summary?: string; resource?: any }) =>
+    fetchJSON<{ success: boolean; message: string }>("/paypal/webhook", { method: "POST", body: JSON.stringify(event) }),
 
   // Stats
   getFinancialStats: () => fetchJSON<FinancialStats>("/transactions/stats"),
@@ -187,8 +205,14 @@ export const api = {
 
   // Invoices
   getInvoices: (status?: string) => fetchJSON<InvoiceItem[]>(`/invoices${status ? `?status=${status}` : ""}`),
-  createInvoice: (data: { recipient_name: string; recipient_email: string; amount: number; currency: string; description: string }) =>
+  createInvoice: (data: { recipient_name: string; recipient_email: string; amount: number; currency: string; description: string; due_date?: string }) =>
     fetchJSON<InvoiceItem>("/invoices", { method: "POST", body: JSON.stringify(data) }),
+  updateInvoice: (invoiceId: number, data: { description?: string; status?: string; due_date?: string }) =>
+    fetchJSON<InvoiceItem>(`/invoices/${invoiceId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteInvoice: (invoiceId: number) =>
+    fetchJSON<{ success: boolean; message: string }>(`/invoices/${invoiceId}`, { method: "DELETE" }),
+  getInvoiceReceipt: (invoiceId: number) =>
+    fetchJSON<any>(`/invoices/${invoiceId}/receipt`),
   createCheckoutOrder: (invoiceId: number) =>
     fetchJSON<any>(`/invoices/${invoiceId}/checkout`, { method: "POST" }),
   captureInvoiceOrder: (invoiceId: number, orderId: string) =>
@@ -202,29 +226,51 @@ export const api = {
     fetchJSON<PayoutItem>("/payouts", { method: "POST", body: JSON.stringify(data) }),
   approvePayout: (payoutId: number, approved_by: string = "Operator") =>
     fetchJSON<PayoutItem>(`/payouts/${payoutId}/approve`, { method: "POST", body: JSON.stringify({ approved_by }) }),
+  rejectPayout: (payoutId: number) =>
+    fetchJSON<PayoutItem>(`/payouts/${payoutId}/reject`, { method: "POST" }),
+  deletePayout: (payoutId: number) =>
+    fetchJSON<{ success: boolean; message: string }>(`/payouts/${payoutId}`, { method: "DELETE" }),
   executePayout: (payoutId: number) =>
     fetchJSON<PayoutItem>(`/payouts/${payoutId}/execute`, { method: "POST" }),
 
   // Workflows
   getWorkflows: () => fetchJSON<WorkflowRuleItem[]>("/workflows"),
+  createWorkflow: (data: { name: string; description: string; trigger_type: string; condition_expression?: string; action_type: string; requires_approval?: boolean; is_active?: boolean }) =>
+    fetchJSON<WorkflowRuleItem>("/workflows", { method: "POST", body: JSON.stringify(data) }),
+  updateWorkflow: (id: number, data: Partial<WorkflowRuleItem>) =>
+    fetchJSON<WorkflowRuleItem>(`/workflows/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteWorkflow: (id: number) =>
+    fetchJSON<{ success: boolean; message: string }>(`/workflows/${id}`, { method: "DELETE" }),
   toggleWorkflow: (id: number) => fetchJSON<WorkflowRuleItem>(`/workflows/${id}/toggle`, { method: "PATCH" }),
   testRunWorkflow: (id: number) => fetchJSON<WorkflowExecutionItem>(`/workflows/${id}/run`, { method: "POST" }),
   getWorkflowExecutions: () => fetchJSON<WorkflowExecutionItem[]>("/workflows/executions"),
 
   // Transactions
-  getTransactions: (type?: string, status?: string, search?: string) => {
+  getTransactions: (type?: string, status?: string, search?: string, sortBy?: string, sortOrder?: string) => {
     const params = new URLSearchParams();
     if (type) params.append("type", type);
     if (status) params.append("status", status);
     if (search) params.append("search", search);
+    if (sortBy) params.append("sort_by", sortBy);
+    if (sortOrder) params.append("sort_order", sortOrder);
     return fetchJSON<TransactionItem[]>(`/transactions?${params.toString()}`);
+  },
+  getTransactionsExportUrl: (type?: string) => {
+    return `/api/transactions/export${type ? `?type=${type}` : ""}`;
   },
 
   // Audit
-  getAuditLogs: (eventType?: string) => fetchJSON<AuditEventItem[]>(`/audit${eventType ? `?event_type=${eventType}` : ""}`),
+  getAuditLogs: (eventType?: string, limit?: number) =>
+    fetchJSON<AuditEventItem[]>(`/audit${eventType ? `?event_type=${eventType}&limit=${limit || 100}` : `?limit=${limit || 100}`}`),
 
   // Recipients
   getRecipients: () => fetchJSON<any[]>("/recipients"),
+  createRecipient: (data: { name: string; email: string; paypal_email: string; category?: string; verified?: boolean; notes?: string }) =>
+    fetchJSON<any>("/recipients", { method: "POST", body: JSON.stringify(data) }),
+  updateRecipient: (id: number, data: any) =>
+    fetchJSON<any>(`/recipients/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteRecipient: (id: number) =>
+    fetchJSON<{ success: boolean; message: string }>(`/recipients/${id}`, { method: "DELETE" }),
 
   // Seed & Reset
   seedDemo: () => fetchJSON<any>("/seed", { method: "POST" }),

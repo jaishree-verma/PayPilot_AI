@@ -193,3 +193,56 @@ async def test_workflow_execution_and_logging():
     assert execs[0].status == "SUCCESS"
     assert execs[0].execution_result["capture_id"] == "CAP-TEST-123"
     db.close()
+
+def test_user_profile_crud():
+    """Verify user profile retrieval and update endpoints"""
+    get_res = client.get("/api/user/profile")
+    assert get_res.status_code == 200
+    user_data = get_res.json()
+    assert "Mercer Tech Labs" in user_data["business_name"]
+
+    put_res = client.put("/api/user/profile", json={"business_name": "Apex Fintech Corp"})
+    assert put_res.status_code == 200
+    assert put_res.json()["business_name"] == "Apex Fintech Corp"
+
+def test_invoice_receipt_and_deletion():
+    """Verify invoice receipt endpoint and deletion of unpaid draft invoice"""
+    inv_payload = {
+        "recipient_name": "Receipt Client",
+        "recipient_email": "receipt@client.com",
+        "amount": 300.00,
+        "currency": "USD",
+        "description": "Receipt milestone check"
+    }
+    create_res = client.post("/api/invoices", json=inv_payload)
+    assert create_res.status_code == 200
+    inv_id = create_res.json()["id"]
+
+    receipt_res = client.get(f"/api/invoices/{inv_id}/receipt")
+    assert receipt_res.status_code == 200
+    assert receipt_res.json()["amount"] == 300.00
+    assert receipt_res.json()["customer"]["name"] == "Receipt Client"
+
+    del_res = client.delete(f"/api/invoices/{inv_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["success"] is True
+
+def test_transactions_export_csv():
+    """Verify transactions CSV export endpoint"""
+    res = client.get("/api/transactions/export")
+    assert res.status_code == 200
+    assert "text/csv" in res.headers["content-type"]
+    assert "Reference ID" in res.text
+
+def test_paypal_webhook_handler():
+    """Verify PayPal Sandbox webhook receiver"""
+    payload = {
+        "id": "WH-TEST-9988",
+        "event_type": "CHECKOUT.ORDER.APPROVED",
+        "summary": "Simulated PayPal order approved event",
+        "resource": {"id": "ORD-TEST-123"}
+    }
+    res = client.post("/api/paypal/webhook", json=payload)
+    assert res.status_code == 200
+    assert res.json()["success"] is True
+

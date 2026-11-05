@@ -85,10 +85,19 @@ export const AIAgentPage: React.FC = () => {
       };
       setMessages((prev) => [...prev, agentMsg]);
     } catch (e: any) {
+      const isConnectionIssue =
+        e.message?.includes("Failed to fetch") ||
+        e.message?.includes("NetworkError") ||
+        e.message?.includes("504") ||
+        e.message?.includes("502");
+      const errorText = isConnectionIssue
+        ? "Unable to reach the PayPilot backend API server (port 8000). Please make sure the backend is running (`uvicorn app.main:app --port 8000`)."
+        : `Error processing request: ${e.message}`;
+
       const errorMsg: MessageItem = {
         id: `agent-${Date.now()}`,
         sender: "agent",
-        text: `Error processing request: ${e.message}`,
+        text: errorText,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       setMessages((prev) => [...prev, errorMsg]);

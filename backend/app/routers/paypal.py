@@ -1,8 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
+from sqlalchemy.orm import Session
 from ..config import settings
+from ..database import get_db
+from ..models import Invoice, PayoutRequest
 from ..services.paypal_service import paypal_service
+from ..services.audit_service import audit_service
+from ..services.workflow_service import workflow_service
+from ..schemas import PayPalWebhookEvent, StandardSuccessResponse
 
 router = APIRouter(prefix="/api/paypal", tags=["PayPal"])
 
@@ -53,3 +59,42 @@ async def update_paypal_config(config: ConfigUpdate):
         "message": conn.get("message", ""),
         "client_id_configured": paypal_service.is_configured()
     }
+
+@router.post("/webhook", response_model=StandardSuccessResponse)
+async def handle_paypal_webhook(event: PayPalWebhookEvent, db: Session = Depends(get_db)):
+    """
+    Receives and processes official PayPal Sandbox webhook notifications or simulated events.
+    """
+    event_type = event.event_type
+    resource = event.resource
+
+    audit_service.log_event(
+        db=db,
+        event_type=f"PAYPAL_WEBHOOK_{event_type.replace('.', '_')}",
+        initiated_by="PAYPAL_WEBHOOK",
+        validated_parameters={"event_id": event.id, "summary": event.summary},
+        approval_status="APPROVED",
+        execution_result="SUCCESS",
+        reference_id=event.id or "WH-EVENT",
+        details=f"Received PayPal Webhook event: {event_type} - {event.summary or 'Event processed'}"
+    )
+
+    if event_type == "CHECKOUT.ORDER.APPROVED":
+        order_id = resource.get("id")
+        inv = db.query(Invoice).filter(Invoice.paypal_order_id == order_id).first()
+        if inv and inv.status != "PAID":
+            from ..services.invoice_service import invoice_service
+            await invoice_service.reconcile_paypal_capture(db, inv.id, order_id)
+
+    elif event_type == "PAYMENT.PAYOUTSBATCH.SUCCESS":
+        batch_id = resource.get("batch_header", {}).get("payout_batch_id")
+        if batch_id:
+            payout = db.query(PayoutRequest).filter(PayoutRequest.paypal_batch_id == batch_id).first()
+            if payout and payout.status != "COMPLETED":
+                payout.status = "COMPLETED"
+                db.commit()
+
+    return StandardSuccessResponse(
+        success=True,
+        message=f"Webhook event {event_type} handled successfully."
+    )

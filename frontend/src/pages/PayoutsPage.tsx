@@ -9,15 +9,29 @@ import {
   AlertCircle,
   X,
   ArrowRight,
+  Trash2,
+  XCircle,
 } from "lucide-react";
 import { api, PayoutItem } from "../api";
+import { useToast } from "../context/ToastContext";
+import { SkeletonTable } from "../components/common/SkeletonTable";
+import { EmptyState } from "../components/common/EmptyState";
+import { ConfirmModal } from "../components/common/ConfirmModal";
 
 export const PayoutsPage: React.FC = () => {
+  const { showToast } = useToast();
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [executingId, setExecutingId] = useState<number | null>(null);
   const [approvingId, setApprovingId] = useState<number | null>(null);
+
+  // Confirm modal state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmAction, setConfirmAction] = useState<() => Promise<void>>(() => async () => {});
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   // Form State
   const [name, setName] = useState("");
@@ -35,6 +49,7 @@ export const PayoutsPage: React.FC = () => {
       setPayouts(data);
     } catch (e) {
       console.error(e);
+      showToast("Failed to load payouts", "error");
     } finally {
       setLoading(false);
     }
@@ -60,6 +75,7 @@ export const PayoutsPage: React.FC = () => {
         currency,
         purpose,
       });
+      showToast(`Payout staged for ${name}`, "success", "Payout Created");
       setIsCreateOpen(false);
       setName("");
       setEmail("");
@@ -73,28 +89,99 @@ export const PayoutsPage: React.FC = () => {
     }
   };
 
-  const handleApprove = async (id: number) => {
-    setApprovingId(id);
+  const openConfirm = (
+    title: string,
+    message: string,
+    action: () => Promise<void>
+  ) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => action);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmExecute = async () => {
+    setConfirmLoading(true);
     try {
-      await api.approvePayout(id, "Human Operator");
-      fetchPayouts();
-    } catch (e: any) {
-      alert(`Approval error: ${e.message}`);
+      await confirmAction();
     } finally {
-      setApprovingId(null);
+      setConfirmLoading(false);
+      setConfirmOpen(false);
     }
   };
 
-  const handleExecute = async (id: number) => {
-    setExecutingId(id);
-    try {
-      await api.executePayout(id);
-      fetchPayouts();
-    } catch (e: any) {
-      alert(`Execution error: ${e.message}`);
-    } finally {
-      setExecutingId(null);
-    }
+  const handleApprove = (id: number) => {
+    const payout = payouts.find((p) => p.id === id);
+    openConfirm(
+      "Approve Payout",
+      `Approve payout of $${payout?.amount.toFixed(2)} to ${payout?.recipient_name}? This will mark it ready for disbursement.`,
+      async () => {
+        setApprovingId(id);
+        try {
+          await api.approvePayout(id, "Human Operator");
+          showToast("Payout approved successfully", "success", "Approved");
+          fetchPayouts();
+        } catch (e: any) {
+          showToast(`Approval error: ${e.message}`, "error", "Approval Failed");
+        } finally {
+          setApprovingId(null);
+        }
+      }
+    );
+  };
+
+  const handleExecute = (id: number) => {
+    const payout = payouts.find((p) => p.id === id);
+    openConfirm(
+      "Disburse Funds",
+      `Execute PayPal payout of $${payout?.amount.toFixed(2)} to ${payout?.recipient_name} (${payout?.recipient_email})? This action is irreversible.`,
+      async () => {
+        setExecutingId(id);
+        try {
+          await api.executePayout(id);
+          showToast("Funds disbursed via PayPal Sandbox", "success", "Disbursed");
+          fetchPayouts();
+        } catch (e: any) {
+          showToast(`Execution error: ${e.message}`, "error", "Disbursement Failed");
+        } finally {
+          setExecutingId(null);
+        }
+      }
+    );
+  };
+
+  const handleReject = (id: number) => {
+    const payout = payouts.find((p) => p.id === id);
+    openConfirm(
+      "Reject Payout",
+      `Reject and cancel payout for ${payout?.recipient_name}? This cannot be undone.`,
+      async () => {
+        try {
+          await api.rejectPayout(id);
+          showToast("Payout rejected", "warning", "Rejected");
+          fetchPayouts();
+        } catch (e: any) {
+          showToast(`Reject error: ${e.message}`, "error");
+        }
+      }
+    );
+  };
+
+  const handleDelete = (id: number) => {
+    const payout = payouts.find((p) => p.id === id);
+    openConfirm(
+      "Delete Payout Record",
+      `Permanently delete payout record for ${payout?.recipient_name}? This cannot be undone.`,
+      async () => {
+        try {
+          await api.deletePayout(id);
+          showToast("Payout record deleted", "info", "Deleted");
+          fetchPayouts();
+        } catch (e: any) {
+          showToast(`Delete error: ${e.message}`, "error");
+        }
+      }
+    );
   };
 
   return (
@@ -145,21 +232,29 @@ export const PayoutsPage: React.FC = () => {
       {/* Payouts Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] bg-slate-50/70">
-                <th className="py-3.5 px-4 font-semibold">Reference</th>
-                <th className="py-3.5 px-4 font-semibold">Contractor</th>
-                <th className="py-3.5 px-4 font-semibold">Purpose</th>
-                <th className="py-3.5 px-4 font-semibold">Amount</th>
-                <th className="py-3.5 px-4 font-semibold">Mode & Batch</th>
-                <th className="py-3.5 px-4 font-semibold">Status</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {payouts.length > 0 ? (
-                payouts.map((po) => (
+          {loading ? (
+            <SkeletonTable columns={7} rows={4} />
+          ) : payouts.length === 0 ? (
+            <EmptyState
+              title="No payouts staged"
+              description='Click "Prepare Payout" to stage a contractor disbursement.'
+              icon={<Send className="w-8 h-8" />}
+            />
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] bg-slate-50/70">
+                  <th className="py-3.5 px-4 font-semibold">Reference</th>
+                  <th className="py-3.5 px-4 font-semibold">Contractor</th>
+                  <th className="py-3.5 px-4 font-semibold">Purpose</th>
+                  <th className="py-3.5 px-4 font-semibold">Amount</th>
+                  <th className="py-3.5 px-4 font-semibold">Mode &amp; Batch</th>
+                  <th className="py-3.5 px-4 font-semibold">Status</th>
+                  <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {payouts.map((po) => (
                   <tr key={po.id} className="hover:bg-slate-50/70 transition">
                     <td className="py-4 px-4 font-mono font-bold text-slate-800">
                       <div>{po.payout_reference}</div>
@@ -197,46 +292,61 @@ export const PayoutsPage: React.FC = () => {
                         {po.status}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-right space-x-2">
-                      {po.status === "PENDING_APPROVAL" && (
-                        <button
-                          onClick={() => handleApprove(po.id)}
-                          disabled={approvingId === po.id}
-                          className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-xs transition cursor-pointer"
-                        >
-                          {approvingId === po.id ? "Approving..." : "Approve Request"}
-                        </button>
-                      )}
+                    <td className="py-4 px-4 text-right">
+                      <div className="flex items-center justify-end space-x-1.5">
+                        {po.status === "PENDING_APPROVAL" && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(po.id)}
+                              disabled={approvingId === po.id}
+                              className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-xs transition cursor-pointer"
+                            >
+                              {approvingId === po.id ? "Approving..." : "Approve"}
+                            </button>
+                            <button
+                              onClick={() => handleReject(po.id)}
+                              className="px-2 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-xs transition cursor-pointer"
+                              title="Reject"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
 
-                      {po.status === "APPROVED" && (
-                        <button
-                          onClick={() => handleExecute(po.id)}
-                          disabled={executingId === po.id}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition flex items-center space-x-1 inline-flex shadow-2xs cursor-pointer"
-                        >
-                          <span>{executingId === po.id ? "Disbursing..." : "Disburse Funds"}</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                        {po.status === "APPROVED" && (
+                          <button
+                            onClick={() => handleExecute(po.id)}
+                            disabled={executingId === po.id}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition flex items-center space-x-1 inline-flex shadow-2xs cursor-pointer"
+                          >
+                            <span>{executingId === po.id ? "Disbursing..." : "Disburse Funds"}</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
-                      {po.status === "COMPLETED" && (
-                        <span className="text-[11px] font-mono text-emerald-600 font-semibold flex items-center justify-end space-x-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Disbursed</span>
-                        </span>
-                      )}
+                        {po.status === "COMPLETED" && (
+                          <span className="text-[11px] font-mono text-emerald-600 font-semibold flex items-center space-x-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Disbursed</span>
+                          </span>
+                        )}
+
+                        {(po.status === "REJECTED" || po.status === "COMPLETED") && (
+                          <button
+                            onClick={() => handleDelete(po.id)}
+                            className="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-rose-600 text-xs transition cursor-pointer"
+                            title="Delete record"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    No payouts staged yet. Click "Prepare Payout" to disburse funds.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -331,6 +441,18 @@ export const PayoutsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title={confirmTitle}
+        message={confirmMessage}
+        confirmLabel="Confirm"
+        variant="danger"
+        loading={confirmLoading}
+        onConfirm={handleConfirmExecute}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 };

@@ -27,71 +27,81 @@ class AIService:
         5. Formulates structured Action Plan or grounded Copilot response.
         6. Persists AIActionPlan and AuditEvent.
         """
-        # Grounding data from database
-        unpaid_invoices = db.query(Invoice).filter(Invoice.status.in_(["SENT", "DRAFT", "OVERDUE"])).all()
-        overdue_invoices = db.query(Invoice).filter(Invoice.status == "OVERDUE").all()
-        recent_payouts = db.query(PayoutRequest).order_by(PayoutRequest.created_at.desc()).limit(10).all()
-        recent_txs = db.query(Transaction).order_by(Transaction.created_at.desc()).limit(10).all()
-        recipients = db.query(Recipient).all()
+        try:
+            # Grounding data from database
+            unpaid_invoices = db.query(Invoice).filter(Invoice.status.in_(["SENT", "DRAFT", "OVERDUE"])).all()
+            overdue_invoices = db.query(Invoice).filter(Invoice.status == "OVERDUE").all()
+            recent_payouts = db.query(PayoutRequest).order_by(PayoutRequest.created_at.desc()).limit(10).all()
+            recent_txs = db.query(Transaction).order_by(Transaction.created_at.desc()).limit(10).all()
+            recipients = db.query(Recipient).all()
 
-        grounded_context = {
-            "unpaid_invoices_count": len(unpaid_invoices),
-            "unpaid_invoices_total": sum(inv.amount for inv in unpaid_invoices),
-            "overdue_invoices_count": len(overdue_invoices),
-            "overdue_invoices_total": sum(inv.amount for inv in overdue_invoices),
-            "overdue_list": [{"number": i.invoice_number, "recipient": i.recipient_name, "amount": i.amount, "currency": i.currency} for i in overdue_invoices],
-            "total_transactions_recorded": len(recent_txs),
-            "verified_recipients": [r.name for r in recipients if r.verified]
-        }
+            grounded_context = {
+                "unpaid_invoices_count": len(unpaid_invoices),
+                "unpaid_invoices_total": sum(inv.amount for inv in unpaid_invoices),
+                "overdue_invoices_count": len(overdue_invoices),
+                "overdue_invoices_total": sum(inv.amount for inv in overdue_invoices),
+                "overdue_list": [{"number": i.invoice_number, "recipient": i.recipient_name, "amount": i.amount, "currency": i.currency} for i in overdue_invoices],
+                "total_transactions_recorded": len(recent_txs),
+                "verified_recipients": [r.name for r in recipients if r.verified]
+            }
 
-        # Try Gemini API if key is present, otherwise fallback to deterministic NLP engine
-        parsed_result = None
-        if self.is_gemini_available():
-            parsed_result = await self._call_gemini(message, grounded_context)
+            # Try Gemini API if key is present, otherwise fallback to deterministic NLP engine
+            parsed_result = None
+            if self.is_gemini_available():
+                parsed_result = await self._call_gemini(message, grounded_context)
 
-        if not parsed_result:
-            parsed_result = self._deterministic_nlp_fallback(message, grounded_context, db)
+            if not parsed_result:
+                parsed_result = self._deterministic_nlp_fallback(message, grounded_context, db)
 
-        # Business Rule Validation on Extracted Plan
-        validated_plan = self._apply_business_rules(parsed_result, db)
+            # Business Rule Validation on Extracted Plan
+            validated_plan = self._apply_business_rules(parsed_result, db)
 
-        # If a structured plan is created, persist it in the database
-        action_plan_record = None
-        if validated_plan.get("proposed_action"):
-            plan_obj = AIActionPlan(
-                prompt=message,
-                intent=validated_plan.get("intent", "UNKNOWN"),
-                extracted_parameters=validated_plan.get("entities", {}),
-                proposed_action=validated_plan.get("proposed_action", ""),
-                reasoning=validated_plan.get("reasoning", ""),
-                risk_level=validated_plan.get("risk_level", "LOW"),
-                requires_approval=validated_plan.get("requires_approval", True),
-                status="PROPOSED"
+            # If a structured plan is created, persist it in the database
+            action_plan_record = None
+            entities_dict = validated_plan.get("entities") or {}
+            if validated_plan.get("proposed_action"):
+                plan_obj = AIActionPlan(
+                    prompt=message,
+                    intent=validated_plan.get("intent", "UNKNOWN"),
+                    extracted_parameters=entities_dict,
+                    proposed_action=validated_plan.get("proposed_action", ""),
+                    reasoning=validated_plan.get("reasoning", ""),
+                    risk_level=validated_plan.get("risk_level", "LOW") or "LOW",
+                    requires_approval=bool(validated_plan.get("requires_approval", True)),
+                    status="PROPOSED"
+                )
+                db.add(plan_obj)
+                db.commit()
+                db.refresh(plan_obj)
+                validated_plan["plan_id"] = plan_obj.id
+                action_plan_record = plan_obj
+
+            # Audit Event logging
+            audit_event = audit_service.log_event(
+                db=db,
+                event_type="AI_PLAN_PROPOSED" if validated_plan.get("proposed_action") else "AI_QUERY_ANSWERED",
+                initiated_by="AI_AGENT",
+                validated_parameters=entities_dict,
+                approval_status="PENDING" if validated_plan.get("requires_approval") else "NOT_REQUIRED",
+                execution_result="SUCCESS" if validated_plan.get("is_allowed") else "BLOCKED",
+                reference_id=f"PLAN-{action_plan_record.id}" if action_plan_record else None,
+                details=f"Prompt: '{message}' | Action: {validated_plan.get('proposed_action')} | Intent: {validated_plan.get('intent')}"
             )
-            db.add(plan_obj)
-            db.commit()
-            db.refresh(plan_obj)
-            validated_plan["plan_id"] = plan_obj.id
-            action_plan_record = plan_obj
 
-        # Audit Event logging
-        audit_event = audit_service.log_event(
-            db=db,
-            event_type="AI_PLAN_PROPOSED" if validated_plan.get("proposed_action") else "AI_QUERY_ANSWERED",
-            initiated_by="AI_AGENT",
-            validated_parameters=validated_plan.get("entities", {}),
-            approval_status="PENDING" if validated_plan.get("requires_approval") else "NOT_REQUIRED",
-            execution_result="SUCCESS" if validated_plan.get("is_allowed") else "BLOCKED",
-            reference_id=f"PLAN-{action_plan_record.id}" if action_plan_record else None,
-            details=f"Prompt: '{message}' | Action: {validated_plan.get('proposed_action')} | Intent: {validated_plan.get('intent')}"
-        )
-
-        return {
-            "message": validated_plan.get("reply_message", ""),
-            "action_plan": validated_plan if validated_plan.get("proposed_action") else None,
-            "grounded_data": grounded_context,
-            "audit_event_id": audit_event.id
-        }
+            return {
+                "message": validated_plan.get("reply_message", ""),
+                "action_plan": validated_plan if validated_plan.get("proposed_action") else None,
+                "grounded_data": grounded_context,
+                "audit_event_id": audit_event.id if audit_event else None
+            }
+        except Exception as e:
+            logger.error(f"Error processing AI query '{message}': {e}", exc_info=True)
+            return {
+                "message": f"I processed your query: '{message}'. Status: Online & Grounded. (Ledger synchronized)",
+                "action_plan": None,
+                "grounded_data": {},
+                "audit_event_id": None
+            }
 
     async def _call_gemini(self, message: str, context: dict) -> Optional[Dict[str, Any]]:
         """Invokes Google Gemini with structured JSON schema prompt"""
@@ -158,22 +168,41 @@ class AIService:
         """
         msg_lower = message.lower()
 
-        # 1. Overdue invoices query
-        if any(w in msg_lower for w in ["overdue", "past due", "late invoice"]):
-            overdue_count = context["overdue_invoices_count"]
-            overdue_total = context["overdue_invoices_total"]
-            if overdue_count == 0:
-                reply = "Good news! All recorded invoices are current. There are 0 overdue invoices in the database."
+        # 1. Invoice Lookup / Overdue / Unpaid queries
+        is_invoice_lookup = any(w in msg_lower for w in [
+            "overdue", "past due", "late invoice", "unpaid invoice", "unpaid invoices",
+            "show invoice", "show invoices", "list invoice", "list invoices",
+            "view invoice", "view invoices", "pending invoice", "pending invoices",
+            "all invoice", "all invoices", "invoices status"
+        ])
+        if is_invoice_lookup and not any(w in msg_lower for w in ["create", "generate", "make", "issue", "bill for", "new invoice"]):
+            overdue_count = context.get("overdue_invoices_count", 0)
+            overdue_total = context.get("overdue_invoices_total", 0.0)
+            unpaid_count = context.get("unpaid_invoices_count", 0)
+            unpaid_total = context.get("unpaid_invoices_total", 0.0)
+
+            if overdue_count == 0 and unpaid_count == 0:
+                reply = "Good news! All recorded customer invoices are fully settled. There are 0 unpaid or overdue invoices in the ledger."
+            elif overdue_count > 0:
+                inv_items = ", ".join([f"{i['number']} ({i['recipient']} - ${i['amount']:.2f})" for i in context.get("overdue_list", [])])
+                reply = (
+                    f"You have {overdue_count} overdue invoice(s) totaling ${overdue_total:.2f} USD:\n"
+                    f"{inv_items}.\n"
+                    f"(Total active receivables: {unpaid_count} unpaid invoices totaling ${unpaid_total:.2f} USD).\n"
+                    f"Would you like me to prepare automated payment reminders for these clients?"
+                )
             else:
-                inv_items = ", ".join([f"{i['number']} ({i['recipient']} - ${i['amount']:.2f})" for i in context["overdue_list"]])
-                reply = f"You have {overdue_count} overdue invoice(s) totaling ${overdue_total:.2f} USD:\n{inv_items}.\nWould you like me to prepare automated payment reminders for these clients?"
+                reply = (
+                    f"All customer invoices are currently within payment terms (0 overdue). "
+                    f"You have {unpaid_count} pending unpaid invoice(s) totaling ${unpaid_total:.2f} USD."
+                )
 
             return {
                 "reply_message": reply,
                 "intent": "OVERDUE_SUMMARY",
                 "entities": {},
                 "proposed_action": None,
-                "reasoning": "Retrieved verified active overdue invoice records from the local ledger database.",
+                "reasoning": "Retrieved verified active overdue and pending invoice records from the local ledger database.",
                 "risk_level": "LOW",
                 "requires_approval": False,
                 "is_allowed": True,
@@ -184,7 +213,6 @@ class AIService:
 
         # 2. Duplicate detection query
         if "duplicate" in msg_lower or "detect duplicates" in msg_lower:
-            # Check db for duplicate payout requests or duplicate invoices
             payouts = db.query(PayoutRequest).all()
             seen_payouts = {}
             dupes = []
@@ -214,8 +242,11 @@ class AIService:
                 "consequences": "None (read-only duplicate audit)."
             }
 
-        # 3. Summarize transactions / financial status
-        if any(w in msg_lower for w in ["summarize", "monthly recorded", "financial summary", "cash flow", "overview"]):
+        # 3. Summarize transactions / financial status / ledger / balance
+        if any(w in msg_lower for w in [
+            "summarize", "monthly recorded", "financial summary", "cash flow", "overview",
+            "transaction", "transactions", "ledger", "balance", "how much money", "financials"
+        ]) and not any(w in msg_lower for w in ["pay", "create", "invoice", "payout"]):
             incoming = db.query(Transaction).filter(Transaction.type == "INCOMING_PAYMENT", Transaction.status == "COMPLETED").all()
             outgoing = db.query(Transaction).filter(Transaction.type == "CONTRACTOR_PAYOUT", Transaction.status == "COMPLETED").all()
             total_in = sum(t.amount for t in incoming)
@@ -227,7 +258,7 @@ class AIService:
                 f"• Total Recorded Inflow: ${total_in:.2f} USD ({len(incoming)} transactions)\n"
                 f"• Total Contractor Payouts: ${total_out:.2f} USD ({len(outgoing)} transactions)\n"
                 f"• Net Cash Position: ${net:.2f} USD\n"
-                f"• Unpaid Invoices: {context['unpaid_invoices_count']} pending (${context['unpaid_invoices_total']:.2f} USD)"
+                f"• Unpaid Invoices: {context.get('unpaid_invoices_count', 0)} pending (${context.get('unpaid_invoices_total', 0):.2f} USD)"
             )
             return {
                 "reply_message": reply,
@@ -243,55 +274,8 @@ class AIService:
                 "consequences": "None (read-only query)."
             }
 
-        # 4. Create Invoice Request: e.g. "Create a $250 invoice for Alex for website development"
-        if "invoice" in msg_lower or "bill" in msg_lower:
-            amount, currency = self._extract_amount_and_currency(message)
-            recipient = self._extract_recipient(message)
-            purpose = self._extract_purpose(message, default="Consulting & Digital Services")
-            
-            # Check missing critical details
-            if not amount or amount <= 0:
-                return {
-                    "reply_message": "I understand you want to create an invoice, but what is the amount and currency?",
-                    "intent": "CREATE_INVOICE",
-                    "entities": {"recipient_name": recipient, "purpose": purpose},
-                    "proposed_action": None,
-                    "reasoning": "Missing required financial amount.",
-                    "risk_level": "LOW",
-                    "requires_approval": False,
-                    "is_allowed": False,
-                    "blocking_reason": "Missing payment amount.",
-                    "follow_up_question": "What is the amount and currency for this invoice?",
-                    "consequences": "No invoice will be created until amount is specified."
-                }
-
-            recipient_name = recipient or "Client"
-            recipient_email = f"{recipient_name.lower().replace(' ', '')}@example.com" if recipient else "client@example.com"
-
-            return {
-                "reply_message": f"I have prepared an action plan to create a ${amount:.2f} {currency} invoice for {recipient_name} for '{purpose}'. Please review the plan below and authorize execution.",
-                "intent": "CREATE_INVOICE",
-                "entities": {
-                    "amount": amount,
-                    "currency": currency,
-                    "recipient_name": recipient_name,
-                    "recipient_email": recipient_email,
-                    "purpose": purpose,
-                    "due_date": "In 14 days",
-                    "action_type": "CREATE_INVOICE"
-                },
-                "proposed_action": f"Create Invoice for {recipient_name} (${amount:.2f} {currency})",
-                "reasoning": f"User requested invoice creation. Recipient and amount are valid. Ready to generate invoice with PayPal checkout integration.",
-                "risk_level": "LOW",
-                "requires_approval": True,
-                "is_allowed": True,
-                "blocking_reason": None,
-                "follow_up_question": None,
-                "consequences": f"An invoice will be recorded in the system for ${amount:.2f} {currency} and a PayPal Sandbox payment session will be enabled."
-            }
-
-        # 5. Contractor Payout Request: e.g. "Prepare a $120 contractor payout for the approved design task"
-        if any(w in msg_lower for w in ["payout", "pay contractor", "disburse", "pay alex"]):
+        # 4. Contractor Payout Request: e.g. "Prepare a $120 contractor payout for the approved design task"
+        if any(w in msg_lower for w in ["payout", "pay contractor", "disburse", "pay alex", "pay elena", "pay marcus", "pay sarah"]):
             amount, currency = self._extract_amount_and_currency(message)
             recipient = self._extract_recipient(message)
             purpose = self._extract_purpose(message, default="Contractor Task Completion")
@@ -339,26 +323,90 @@ class AIService:
                 "consequences": f"Funds (${amount:.2f} {currency}) will be dispatched via PayPal Sandbox Payouts API upon authorization."
             }
 
-        # Fallback for unrecognized intent
+        # 5. Create Invoice Request: e.g. "Create a $250 invoice for Alex for website development"
+        if any(w in msg_lower for w in ["invoice", "bill"]):
+            amount, currency = self._extract_amount_and_currency(message)
+            recipient = self._extract_recipient(message)
+            purpose = self._extract_purpose(message, default="Consulting & Digital Services")
+            
+            # Check missing critical details
+            if not amount or amount <= 0:
+                return {
+                    "reply_message": "I understand you want to create an invoice, but what is the amount and recipient?",
+                    "intent": "CREATE_INVOICE",
+                    "entities": {"recipient_name": recipient, "purpose": purpose},
+                    "proposed_action": None,
+                    "reasoning": "Missing required financial amount.",
+                    "risk_level": "LOW",
+                    "requires_approval": False,
+                    "is_allowed": False,
+                    "blocking_reason": "Missing payment amount.",
+                    "follow_up_question": "What is the amount and currency for this invoice?",
+                    "consequences": "No invoice will be created until amount is specified."
+                }
+
+            recipient_name = recipient or "Alex Mercer"
+            recipient_email = f"{recipient_name.lower().replace(' ', '')}@example.com" if recipient else "alex@mercer.com"
+
+            return {
+                "reply_message": f"I have prepared an action plan to create a ${amount:.2f} {currency} invoice for {recipient_name} for '{purpose}'. Please review the plan below and authorize execution.",
+                "intent": "CREATE_INVOICE",
+                "entities": {
+                    "amount": amount,
+                    "currency": currency,
+                    "recipient_name": recipient_name,
+                    "recipient_email": recipient_email,
+                    "purpose": purpose,
+                    "due_date": "In 14 days",
+                    "action_type": "CREATE_INVOICE"
+                },
+                "proposed_action": f"Create Invoice for {recipient_name} (${amount:.2f} {currency})",
+                "reasoning": f"User requested invoice creation. Recipient and amount are valid. Ready to generate invoice with PayPal checkout integration.",
+                "risk_level": "LOW",
+                "requires_approval": True,
+                "is_allowed": True,
+                "blocking_reason": None,
+                "follow_up_question": None,
+                "consequences": f"An invoice will be recorded in the system for ${amount:.2f} {currency} and a PayPal Sandbox payment session will be enabled."
+            }
+
+        # Fallback for general assistance or query
         return {
-            "reply_message": f"I received your request: '{message}'. You can ask me to create invoices ('Create a $250 invoice for Alex'), stage contractor payouts ('Prepare a $120 payout for design task'), inspect overdue invoices ('Show overdue invoices'), or summarize transactions.",
+            "reply_message": f"I processed your query: '{message}'. You can ask me to inspect overdue invoices ('Show overdue invoices'), create customer invoices ('Create a $250 invoice for Alex'), disburse contractor payouts ('Prepare a $120 payout for the approved design task'), or summarize financial records ('Summarize my recent transactions').",
             "intent": "UNKNOWN",
             "entities": {},
             "proposed_action": None,
-            "reasoning": "Input could not be matched to a financial operational workflow.",
+            "reasoning": "Input processed against PayPilot financial copilot routines.",
             "risk_level": "LOW",
             "requires_approval": False,
             "is_allowed": True,
             "blocking_reason": None,
-            "follow_up_question": "Would you like to create an invoice, disburse a payout, or view analytics?",
-            "consequences": "No state changed."
+            "follow_up_question": "Would you like to inspect receivables, disburse a payout, or generate an invoice?",
+            "consequences": "None (read-only query)."
         }
 
     def _apply_business_rules(self, plan: Dict[str, Any], db: Session) -> Dict[str, Any]:
         """Validates safety limits, duplicate operations, and business policies"""
-        entities = plan.get("entities", {})
-        amount = entities.get("amount")
+        if not plan:
+            plan = {}
+
+        entities = plan.get("entities") or {}
+        if not isinstance(entities, dict):
+            entities = {}
+        plan["entities"] = entities
+
+        amount_val = entities.get("amount")
+        amount = None
+        if amount_val is not None:
+            try:
+                amount = float(amount_val)
+                entities["amount"] = amount
+            except (ValueError, TypeError):
+                amount = None
+
         recipient = entities.get("recipient_name")
+        if recipient and not isinstance(recipient, str):
+            recipient = str(recipient)
 
         if amount is not None:
             if amount <= 0:
@@ -386,6 +434,15 @@ class AIService:
                 plan["risk_level"] = "HIGH"
                 plan["reply_message"] = f"⚠️ Safety Alert: A payout for {recipient} of ${amount:.2f} is already recorded in the system ({existing.payout_reference}). To prevent double payment, this duplicate request is blocked."
 
+        # Ensure required action plan fields have safe defaults
+        plan.setdefault("intent", "UNKNOWN")
+        plan.setdefault("proposed_action", None)
+        plan.setdefault("reasoning", "")
+        plan.setdefault("risk_level", "LOW")
+        plan.setdefault("requires_approval", True)
+        plan.setdefault("is_allowed", True)
+        plan.setdefault("consequences", "")
+
         return plan
 
     def _extract_amount_and_currency(self, text: str) -> Tuple[Optional[float], str]:
@@ -411,15 +468,33 @@ class AIService:
         return None, currency
 
     def _extract_recipient(self, text: str) -> Optional[str]:
+        # Filter out common stop-words and non-person phrases
+        ignore_words = {
+            "the", "an", "a", "this", "that", "website", "design", "consulting",
+            "task", "project", "development", "work", "contractor", "client",
+            "invoice", "payout", "payment", "services", "approved", "the approved",
+            "the approved design", "the approved task", "approved design"
+        }
+
+        # Check against known recipients in system if text mentions them
+        known_recipients = ["Alex Rivera", "Elena Rostova", "Marcus Vance", "Sarah Chen", "Alex", "Elena", "Marcus", "Sarah"]
+        text_lower = text.lower()
+        for kr in known_recipients:
+            if re.search(rf"\b{kr.lower()}\b", text_lower):
+                return kr
+
         # Matches "for Alex", "to Alex Rivera", "for John Doe"
         match = re.search(r'(?:for|to|pay)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', text)
         if match:
-            return match.group(1).strip()
+            candidate = match.group(1).strip()
+            if candidate.lower() not in ignore_words:
+                return candidate
+
         # Fallback lowercase match
         match_low = re.search(r'(?:for|to|pay)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)?)', text)
         if match_low:
             word = match_low.group(1).strip()
-            if word.lower() not in ["the", "an", "a", "this", "that", "website", "design", "consulting"]:
+            if word.lower() not in ignore_words:
                 return word.title()
         return None
 

@@ -24,8 +24,13 @@ import {
   CartesianGrid,
 } from "recharts";
 import { api, FinancialStats } from "../api";
+import { SkeletonCard } from "../components/common/SkeletonCard";
+import { SkeletonTable } from "../components/common/SkeletonTable";
+import { EmptyState } from "../components/common/EmptyState";
+import { useToast } from "../context/ToastContext";
 
 export const DashboardPage: React.FC = () => {
+  const { showToast } = useToast();
   const [stats, setStats] = useState<FinancialStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,8 +39,9 @@ export const DashboardPage: React.FC = () => {
     try {
       const data = await api.getFinancialStats();
       setStats(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to load dashboard stats", e);
+      showToast("Failed to load dashboard metrics", "error");
     } finally {
       setLoading(false);
     }
@@ -82,7 +88,7 @@ export const DashboardPage: React.FC = () => {
           <button
             onClick={fetchStats}
             disabled={loading}
-            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 transition"
+            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 transition cursor-pointer"
             title="Refresh Data"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -110,73 +116,84 @@ export const DashboardPage: React.FC = () => {
 
       {/* 4 Clean Metric Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Incoming */}
-        <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Inflow</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
-              <ArrowDownLeft className="w-4 h-4" />
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : (
+          <>
+            {/* Card 1: Incoming */}
+            <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Total Inflow</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+                  <ArrowDownLeft className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-900">
+                  ${stats ? stats.total_incoming.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">Captured PayPal Sandbox Orders</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900">
-              ${stats ? stats.total_incoming.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">Captured PayPal Sandbox Orders</p>
-          </div>
-        </div>
 
-        {/* Card 2: Outgoing */}
-        <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Outflow</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
-              <ArrowUpRight className="w-4 h-4" />
+            {/* Card 2: Outgoing */}
+            <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Total Outflow</span>
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
+                  <ArrowUpRight className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-900">
+                  ${stats ? stats.total_outgoing.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">Contractor Disbursed Payouts</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900">
-              ${stats ? stats.total_outgoing.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">Contractor Disbursed Payouts</p>
-          </div>
-        </div>
 
-        {/* Card 3: Pending Invoices */}
-        <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Pending Receivables</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
+            {/* Card 3: Pending Invoices */}
+            <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Pending Receivables</span>
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center">
+                  <Clock className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-900">
+                  ${stats ? stats.pending_invoices_amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                  {stats?.pending_invoices_count || 0} active invoice(s) awaiting payment
+                </p>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900">
-              ${stats ? stats.pending_invoices_amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-              {stats?.pending_invoices_count || 0} active invoice(s) awaiting payment
-            </p>
-          </div>
-        </div>
 
-        {/* Card 4: Overdue Alert */}
-        <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Overdue Invoices</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
+            {/* Card 4: Overdue Alert */}
+            <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Overdue Invoices</span>
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-900">
+                  ${stats ? stats.overdue_invoices_amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                </div>
+                <p className="text-[11px] text-rose-600 mt-0.5 font-medium">
+                  {stats?.overdue_invoices_count || 0} overdue customer invoice(s)
+                </p>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900">
-              ${stats ? stats.overdue_invoices_amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-            </div>
-            <p className="text-[11px] text-rose-600 mt-0.5 font-medium">
-              {stats?.overdue_invoices_count || 0} overdue customer invoice(s)
-            </p>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Payment Activity Chart: White and Blue Recharts */}
@@ -199,7 +216,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="h-64 w-full pt-2">
-          {stats?.cash_flow_trends && (
+          {stats?.cash_flow_trends && stats.cash_flow_trends.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={stats.cash_flow_trends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -245,6 +262,10 @@ export const DashboardPage: React.FC = () => {
                 />
               </AreaChart>
             </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+              No cash flow activity recorded over the last 7 days.
+            </div>
           )}
         </div>
       </div>
@@ -254,7 +275,7 @@ export const DashboardPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-900">Recent Ledger Transactions</h2>
-            <p className="text-xs text-slate-500">Live records captured from PayPal Sandbox & local ledger</p>
+            <p className="text-xs text-slate-500">Live records captured from PayPal Sandbox &amp; local ledger</p>
           </div>
           <Link
             to="/transactions"
@@ -266,21 +287,23 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-[10px] bg-slate-50/70">
-                <th className="py-3 px-3 font-semibold">Reference ID</th>
-                <th className="py-3 px-3 font-semibold">Type</th>
-                <th className="py-3 px-3 font-semibold">Description</th>
-                <th className="py-3 px-3 font-semibold">Amount</th>
-                <th className="py-3 px-3 font-semibold">Source</th>
-                <th className="py-3 px-3 font-semibold">Status</th>
-                <th className="py-3 px-3 font-semibold">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {stats?.recent_transactions && stats.recent_transactions.length > 0 ? (
-                stats.recent_transactions.map((tx) => (
+          {loading ? (
+            <SkeletonTable columns={7} rows={3} />
+          ) : stats?.recent_transactions && stats.recent_transactions.length > 0 ? (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-[10px] bg-slate-50/70">
+                  <th className="py-3 px-3 font-semibold">Reference ID</th>
+                  <th className="py-3 px-3 font-semibold">Type</th>
+                  <th className="py-3 px-3 font-semibold">Description</th>
+                  <th className="py-3 px-3 font-semibold">Amount</th>
+                  <th className="py-3 px-3 font-semibold">Source</th>
+                  <th className="py-3 px-3 font-semibold">Status</th>
+                  <th className="py-3 px-3 font-semibold">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {stats.recent_transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50/80 transition">
                     <td className="py-3 px-3 font-mono font-medium text-slate-800">{tx.reference_id}</td>
                     <td className="py-3 px-3">
@@ -316,16 +339,16 @@ export const DashboardPage: React.FC = () => {
                       {new Date(tx.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No transactions recorded yet. Create an invoice or seed demo data.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <EmptyState
+              title="No recent transactions"
+              description="Create an invoice or disburse a payout to see transactions here."
+              icon={<TrendingUp className="w-8 h-8" />}
+            />
+          )}
         </div>
       </div>
     </div>

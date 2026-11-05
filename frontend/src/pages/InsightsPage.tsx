@@ -8,10 +8,16 @@ import {
   Filter,
   CheckCircle2,
   XCircle,
+  Clock,
 } from "lucide-react";
 import { api, AuditEventItem, FinancialStats } from "../api";
+import { SkeletonTable } from "../components/common/SkeletonTable";
+import { SkeletonCard } from "../components/common/SkeletonCard";
+import { EmptyState } from "../components/common/EmptyState";
+import { useToast } from "../context/ToastContext";
 
 export const InsightsPage: React.FC = () => {
+  const { showToast } = useToast();
   const [auditLogs, setAuditLogs] = useState<AuditEventItem[]>([]);
   const [stats, setStats] = useState<FinancialStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,8 +32,9 @@ export const InsightsPage: React.FC = () => {
       ]);
       setAuditLogs(logs);
       setStats(statsData);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      showToast("Failed to load audit logs", "error");
     } finally {
       setLoading(false);
     }
@@ -42,7 +49,7 @@ export const InsightsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Financial Insights & Audit Log</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Financial Insights &amp; Audit Log</h1>
           <p className="text-xs text-slate-500 mt-1">
             Grounded intelligence, receivables analysis, and an append-only audit trail of every AI-initiated action
           </p>
@@ -58,54 +65,64 @@ export const InsightsPage: React.FC = () => {
 
       {/* Insights Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Receivables Health */}
-        <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
-          <div className="flex items-center space-x-2.5 text-blue-600">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : (
+          <>
+            {/* Card 1: Receivables Health */}
+            <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center space-x-2.5 text-blue-600">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">Receivables Intelligence</h3>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {stats && stats.overdue_invoices_count > 0 ? (
+                  <span className="text-amber-700">
+                    ⚠️ {stats.overdue_invoices_count} overdue invoice(s) totaling ${stats.overdue_invoices_amount.toFixed(2)} require collection follow-up. Automated reminders can be triggered via Workflow Rule.
+                  </span>
+                ) : (
+                  <span className="text-emerald-700">
+                    ✓ All recorded customer invoices are currently within their payment terms. No overdue receivables detected.
+                  </span>
+                )}
+              </p>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">Receivables Intelligence</h3>
-          </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            {stats && stats.overdue_invoices_count > 0 ? (
-              <span className="text-amber-700">
-                ⚠️ {stats.overdue_invoices_count} overdue invoice(s) totaling ${stats.overdue_invoices_amount.toFixed(2)} require collection follow-up. Automated reminders can be triggered via Workflow Rule.
-              </span>
-            ) : (
-              <span className="text-emerald-700">
-                ✓ All recorded customer invoices are currently within their payment terms. No overdue receivables detected.
-              </span>
-            )}
-          </p>
-        </div>
 
-        {/* Card 2: Duplicate Prevention Status */}
-        <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
-          <div className="flex items-center space-x-2.5 text-blue-600">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+            {/* Card 2: Duplicate Prevention Status */}
+            <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center space-x-2.5 text-blue-600">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">Duplicate Protection Layer</h3>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Active idempotency verification locks prevent accidental re-execution of identical payout or invoice
+                amounts within 24-hour windows. Double disbursement risk is mitigated.
+              </p>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">Duplicate Protection Layer</h3>
-          </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Active idempotency verification locks prevent accidental re-execution of identical payout or invoice
-            amounts within 24-hour windows. Double disbursement risk is mitigated.
-          </p>
-        </div>
 
-        {/* Card 3: Reconciliation Engine */}
-        <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
-          <div className="flex items-center space-x-2.5 text-blue-600">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-              <BarChart3 className="w-4 h-4" />
+            {/* Card 3: Reconciliation Engine */}
+            <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center space-x-2.5 text-blue-600">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <BarChart3 className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">Ledger Grounding Policy</h3>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                All AI financial responses and copilot summaries are strictly grounded in active database records.
+                The model is constrained to verified ledger mutations.
+              </p>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">Ledger Grounding Policy</h3>
-          </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            All AI financial responses and copilot summaries are strictly grounded in active SQLite records.
-            The model is prohibited from generating fictitious ledger entries.
-          </p>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Audit Log Table */}
@@ -123,14 +140,14 @@ export const InsightsPage: React.FC = () => {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-2xs"
+              className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-2xs cursor-pointer"
             >
               <option value="">All Event Types</option>
               <option value="AI_PLAN_PROPOSED">AI Plan Proposed</option>
               <option value="AI_PLAN_EXECUTED">AI Plan Executed</option>
               <option value="INVOICE_CREATED">Invoice Created</option>
               <option value="PAYPAL_ORDER_CREATED">PayPal Order Created</option>
-              <option value="PAYMENT_CAPTURED_RECONCILED">Payment Captured & Reconciled</option>
+              <option value="PAYMENT_CAPTURED_RECONCILED">Payment Captured &amp; Reconciled</option>
               <option value="PAYOUT_STAGED">Payout Staged</option>
               <option value="PAYOUT_APPROVED">Payout Approved</option>
               <option value="PAYOUT_EXECUTED_COMPLETED">Payout Executed</option>
@@ -139,21 +156,38 @@ export const InsightsPage: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] bg-slate-50/70">
-                <th className="py-3 px-3 font-semibold">Event Type</th>
-                <th className="py-3 px-3 font-semibold">Initiated By</th>
-                <th className="py-3 px-3 font-semibold">Approval</th>
-                <th className="py-3 px-3 font-semibold">Result</th>
-                <th className="py-3 px-3 font-semibold">Reference ID</th>
-                <th className="py-3 px-3 font-semibold">Details</th>
-                <th className="py-3 px-3 font-semibold">Timestamp</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {auditLogs.length > 0 ? (
-                auditLogs.map((log) => (
+          {loading ? (
+            <SkeletonTable columns={7} rows={4} />
+          ) : auditLogs.length === 0 ? (
+            <EmptyState
+              title="No audit events found"
+              description={
+                filterType
+                  ? `No audit logs matched filter "${filterType}".`
+                  : "Actions taken across the application will be recorded here in an immutable audit trail."
+              }
+              icon={<Clock className="w-8 h-8" />}
+              action={
+                filterType
+                  ? { label: "Clear filter", onClick: () => setFilterType("") }
+                  : undefined
+              }
+            />
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] bg-slate-50/70">
+                  <th className="py-3 px-3 font-semibold">Event Type</th>
+                  <th className="py-3 px-3 font-semibold">Initiated By</th>
+                  <th className="py-3 px-3 font-semibold">Approval</th>
+                  <th className="py-3 px-3 font-semibold">Result</th>
+                  <th className="py-3 px-3 font-semibold">Reference ID</th>
+                  <th className="py-3 px-3 font-semibold">Details</th>
+                  <th className="py-3 px-3 font-semibold">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {auditLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/70 transition">
                     <td className="py-3.5 px-3 font-mono font-semibold text-blue-600">{log.event_type}</td>
                     <td className="py-3.5 px-3 text-slate-700 font-medium">
@@ -199,16 +233,10 @@ export const InsightsPage: React.FC = () => {
                       })}
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No audit events found. Actions taken across the application will be recorded here.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

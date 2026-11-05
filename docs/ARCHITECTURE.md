@@ -1,4 +1,4 @@
-# PayPilot AI — Architectural Specification
+# PayPilot AI - Architectural Specification
 
 ## 1. High-Level Architecture Overview
 
@@ -82,14 +82,14 @@ graph LR
     Tier3 --> Tier4
 ```
 
-1. **Tier 1 — Probabilistic Extraction:** The LLM parses the natural-language prompt. The output is strictly treated as untrusted draft input.
-2. **Tier 2 — Deterministic Server-Side Validation:** The backend validates:
+1. **Tier 1 - Probabilistic Extraction:** The LLM parses the natural-language prompt. The output is strictly treated as untrusted draft input.
+2. **Tier 2 - Deterministic Server-Side Validation:** The backend validates:
    - Amounts are positive (`amount > 0`).
    - Currency is valid ISO 4217 code.
    - Payout amounts above `$100.00` strictly mandate human approval (`requires_approval = True`).
    - Duplicate protection checks if identical recipient and amount occurred in the past 24 hours.
-3. **Tier 3 — Human Confirmation Gate:** The plan is persisted with `status = "PROPOSED"`. Execution is physically impossible until an authenticated operator submits an explicit confirmation (`POST /api/ai/execute-plan` with `decision = "CONFIRM"`).
-4. **Tier 4 — Cryptographic Settlement:** The backend generates an idempotent PayPal Request ID, executes the authorized REST API call, verifies the returned capture status, and only then writes to the permanent ledger.
+3. **Tier 3 - Human Confirmation Gate:** The plan is persisted with `status = "PROPOSED"`. Execution is physically impossible until an authenticated operator submits an explicit confirmation (`POST /api/ai/execute-plan` with `decision = "CONFIRM"`).
+4. **Tier 4 - Cryptographic Settlement:** The backend generates an idempotent PayPal Request ID, executes the authorized REST API call, verifies the returned capture status, and only then writes to the permanent ledger.
 
 ---
 

@@ -1,4 +1,4 @@
-# PayPilot AI — API Documentation Reference
+# PayPilot AI - API Documentation Reference
 
 All API endpoints are hosted at `http://127.0.0.1:8000/api` and documented interactively via OpenAPI Swagger at `http://127.0.0.1:8000/docs`.
 
@@ -290,7 +290,7 @@ Computes financial KPIs, 7-day cash flow trend coordinates, and grounded copilot
     {"date": "Oct 21", "incoming": 2400.0, "outgoing": 0.0, "net": 2400.0},
     {"date": "Oct 27", "incoming": 250.0, "outgoing": 0.0, "net": 250.0}
   ],
-  "ai_summary": "Business health is operating with a recorded net cash flow of $2,300.00 USD. 1 customer invoice(s) pending collection ($850.00 USD). ⚠️ Action Required: 1 invoice(s) overdue totaling $1,200.00 USD."
+  "ai_summary": "Business health is operating with a recorded net cash flow of $2,300.00 USD. 1 customer invoice(s) pending collection ($850.00 USD). ️ Action Required: 1 invoice(s) overdue totaling $1,200.00 USD."
 }
 ```
 

@@ -6,24 +6,42 @@ import {
   X,
   CreditCard,
   CheckCircle2,
+  Download,
+  ArrowUpDown,
 } from "lucide-react";
 import { api, TransactionItem, formatCodeClean } from "../api";
+import { SkeletonTable } from "../components/common/SkeletonTable";
+import { EmptyState } from "../components/common/EmptyState";
+import { useDebounce } from "../hooks/useDebounce";
+import { useToast } from "../context/ToastContext";
 
 export const TransactionsPage: React.FC = () => {
+  const { showToast } = useToast();
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+
   const [typeFilter, setTypeFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedTx, setSelectedTx] = useState<TransactionItem | null>(null);
 
   const fetchTransactions = async () => {
     setLoading(true);
     try {
       const typeParam = typeFilter === "ALL" ? undefined : typeFilter;
-      const data = await api.getTransactions(typeParam, undefined, search || undefined);
+      const data = await api.getTransactions(
+        typeParam,
+        undefined,
+        debouncedSearch || undefined,
+        sortBy,
+        sortOrder
+      );
       setTransactions(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      showToast("Failed to load transactions", "error");
     } finally {
       setLoading(false);
     }
@@ -31,11 +49,21 @@ export const TransactionsPage: React.FC = () => {
 
   useEffect(() => {
     fetchTransactions();
-  }, [typeFilter]);
+  }, [typeFilter, debouncedSearch, sortBy, sortOrder]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchTransactions();
+  const toggleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("desc");
+    }
+  };
+
+  const handleExportCSV = () => {
+    const url = api.getTransactionsExportUrl(typeFilter === "ALL" ? undefined : typeFilter);
+    window.open(url, "_blank");
+    showToast("Transactions CSV export started", "info");
   };
 
   return (
@@ -43,18 +71,28 @@ export const TransactionsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Financial Ledger & Transactions</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Financial Ledger &amp; Transactions</h1>
           <p className="text-xs text-slate-500 mt-1">
             Reconciled PayPal Sandbox orders, contractor disbursements, and verified journal entries
           </p>
         </div>
-        <button
-          onClick={fetchTransactions}
-          disabled={loading}
-          className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 transition shadow-2xs self-start sm:self-auto cursor-pointer"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold shadow-2xs transition cursor-pointer"
+            title="Download full ledger as CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export CSV</span>
+          </button>
+          <button
+            onClick={fetchTransactions}
+            disabled={loading}
+            className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 transition shadow-2xs self-start sm:self-auto cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* Filters & Search */}
@@ -77,7 +115,7 @@ export const TransactionsPage: React.FC = () => {
           ))}
         </div>
 
-        <form onSubmit={handleSearchSubmit} className="relative">
+        <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
@@ -86,31 +124,66 @@ export const TransactionsPage: React.FC = () => {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 text-xs placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 w-full sm:w-72 shadow-2xs transition"
           />
-        </form>
+        </div>
       </div>
 
       {/* Transactions Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] bg-slate-50/70">
-                <th className="py-3.5 px-4 font-semibold">Reference ID</th>
-                <th className="py-3.5 px-4 font-semibold">Type</th>
-                <th className="py-3.5 px-4 font-semibold">Description</th>
-                <th className="py-3.5 px-4 font-semibold">Gross</th>
-                <th className="py-3.5 px-4 font-semibold">Net</th>
-                <th className="py-3.5 px-4 font-semibold">Source</th>
-                <th className="py-3.5 px-4 font-semibold">Status</th>
-                <th className="py-3.5 px-4 font-semibold">Date</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {transactions.length > 0 ? (
-                transactions.map((tx) => (
+          {loading ? (
+            <SkeletonTable columns={9} rows={5} />
+          ) : transactions.length === 0 ? (
+            <EmptyState
+              title={debouncedSearch ? "No matching records found" : "No transactions recorded"}
+              description={
+                debouncedSearch
+                  ? `No transactions matched query "${debouncedSearch}".`
+                  : "Recorded customer payments and contractor payouts will appear here in the general ledger."
+              }
+              icon={<Receipt className="w-8 h-8" />}
+              action={
+                debouncedSearch
+                  ? { label: "Clear filter", onClick: () => setSearch("") }
+                  : undefined
+              }
+            />
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] bg-slate-50/70">
+                  <th className="py-3.5 px-4 font-semibold">Reference ID</th>
+                  <th className="py-3.5 px-4 font-semibold">Type</th>
+                  <th className="py-3.5 px-4 font-semibold">Description</th>
+                  <th
+                    className="py-3.5 px-4 font-semibold cursor-pointer hover:text-slate-800"
+                    onClick={() => toggleSort("amount")}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Gross</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                  <th className="py-3.5 px-4 font-semibold">Net</th>
+                  <th className="py-3.5 px-4 font-semibold">Source</th>
+                  <th className="py-3.5 px-4 font-semibold">Status</th>
+                  <th
+                    className="py-3.5 px-4 font-semibold cursor-pointer hover:text-slate-800"
+                    onClick={() => toggleSort("created_at")}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Date</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                  <th className="py-3.5 px-4 font-semibold text-right">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3.5 px-4 font-mono font-medium text-blue-600">{formatCodeClean(tx.reference_id)}</td>
+                    <td className="py-3.5 px-4 font-mono font-medium text-blue-600">
+                      {formatCodeClean(tx.reference_id)}
+                    </td>
                     <td className="py-3.5 px-4">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -144,7 +217,11 @@ export const TransactionsPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-slate-500">
-                      {new Date(tx.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {new Date(tx.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <button
@@ -155,16 +232,10 @@ export const TransactionsPage: React.FC = () => {
                       </button>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
-                    No transactions found matching your criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

@@ -8,12 +8,11 @@ import {
   GitBranch,
   Receipt,
   BarChart3,
-  ShieldCheck,
+  Users,
   Settings,
-  Sparkles,
   X,
-  CreditCard,
 } from "lucide-react";
+import { useApp } from "../context/AppContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -23,6 +22,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenSettings }) => {
   const location = useLocation();
+  const { user, openRecipientModal } = useApp();
 
   const navItems = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,6 +33,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenSetting
     { to: "/transactions", label: "Transactions", icon: Receipt },
     { to: "/insights", label: "Financial Insights", icon: BarChart3 },
   ];
+
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "AM";
 
   const sidebarContent = (
     <div className="h-full flex flex-col bg-white border-r border-slate-200">
@@ -105,17 +114,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenSetting
         })}
 
         <div className="pt-4 px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-          Preferences
+          Directory &amp; Config
         </div>
+        <button
+          onClick={() => {
+            onClose();
+            openRecipientModal();
+          }}
+          className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition cursor-pointer"
+        >
+          <Users className="w-4 h-4 text-slate-400" />
+          <span>Payees &amp; Contractors</span>
+        </button>
+
         <button
           onClick={() => {
             onClose();
             onOpenSettings();
           }}
-          className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition"
+          className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition cursor-pointer"
         >
           <Settings className="w-4 h-4 text-slate-400" />
-          <span>Sandbox & API Settings</span>
+          <span>Sandbox &amp; API Settings</span>
         </button>
       </nav>
 
@@ -123,15 +143,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenSetting
       <div className="p-4 border-t border-slate-100 bg-slate-50/60">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 rounded-full bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs flex items-center justify-center">
-            AM
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-bold text-slate-900 truncate">Alex Mercer</div>
-            <div className="text-[11px] text-slate-500 truncate">Mercer Tech Labs</div>
+            <div className="text-xs font-bold text-slate-900 truncate">
+              {user?.name || "Alex Mercer"}
+            </div>
+            <div className="text-[11px] text-slate-500 truncate">
+              {user?.business_name || "Mercer Tech Labs"}
+            </div>
           </div>
           <button
             onClick={onOpenSettings}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-white transition"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-white transition cursor-pointer"
             title="Settings"
           >
             <Settings className="w-3.5 h-3.5" />

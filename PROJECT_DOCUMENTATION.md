@@ -1,4 +1,4 @@
-# PayPilot AI — Complete Technical & Product Documentation
+# PayPilot AI - Complete Technical & Product Documentation
 
 > **Version:** 1.0.0 (Hackathon Edition)  
 > **Target Audience:** Hackathon Judges, Technical Evaluators, Software Engineers, FinTech Architects  
@@ -7,7 +7,7 @@
 
 ---
 
-## 1. Project Overview — What Are We Building?
+## 1. Project Overview - What Are We Building?
 
 **PayPilot AI** is an intelligent, autonomous financial operations platform built for freelancers, independent contractors, digital service providers, and small businesses. It connects conversational AI reasoning with verified payment execution through the **PayPal Developer Platform (Sandbox)**.
 
@@ -77,7 +77,7 @@ PayPilot AI delivers five tightly integrated capabilities:
 
 ---
 
-## 4. How the Project Works — End-to-End Flow
+## 4. How the Project Works - End-to-End Flow
 
 ```mermaid
 sequenceDiagram
@@ -208,7 +208,7 @@ graph TD
 
 ---
 
-## 6. Technology Stack — What Are We Using and Why?
+## 6. Technology Stack - What Are We Using and Why?
 
 | Technology / Library | Where Used | Why Needed / Rationale | Contribution to the Project |
 |---|---|---|---|
@@ -230,7 +230,7 @@ graph TD
 
 ---
 
-## 7. AI Implementation — How Are We Using AI?
+## 7. AI Implementation - How Are We Using AI?
 
 ### Intent & Entity Extraction Architecture
 
@@ -671,29 +671,29 @@ tests/test_paypilot.py::test_workflow_execution_and_logging PASSED       [100%]
 
 ## 17. Demonstration and Evaluation Guide (3-Minute Script)
 
-### Step 1: The Context & Problem (0:00 – 0:30)
-- **Speaker:** *"Managing freelance and agency finances is painful. Invoicing, chasing overdue clients, and paying contractors across multiple tabs wastes hours and leads to costly double payments. Meet PayPilot AI — an autonomous payment operations platform integrating the official PayPal Developer Sandbox with a controlled AI agent."*
+### Step 1: The Context & Problem (0:00 - 0:30)
+- **Speaker:** *"Managing freelance and agency finances is painful. Invoicing, chasing overdue clients, and paying contractors across multiple tabs wastes hours and leads to costly double payments. Meet PayPilot AI - an autonomous payment operations platform integrating the official PayPal Developer Sandbox with a controlled AI agent."*
 - **Action:** Open [`http://localhost:5173/`](http://localhost:5173/). Click **"Seed Demo Data"** to populate realistic sample records.
 
-### Step 2: Natural-Language Invoicing with AI (0:30 – 1:15)
+### Step 2: Natural-Language Invoicing with AI (0:30 - 1:15)
 - **Speaker:** *"Instead of navigating multiple forms, we ask our AI assistant directly."*
 - **Action:** Navigate to **AI Agent**. Click the prompt chip: `"Create a $250 invoice for Alex for website development"`.
-- **Speaker:** *"Notice what happens: The AI extracts the recipient, amount, and deliverable. It checks safety rules and builds an auditable Action Plan with a LOW risk rating. Crucially, the AI did not directly mutate the database — it asks for human confirmation."*
+- **Speaker:** *"Notice what happens: The AI extracts the recipient, amount, and deliverable. It checks safety rules and builds an auditable Action Plan with a LOW risk rating. Crucially, the AI did not directly mutate the database - it asks for human confirmation."*
 - **Action:** Click **"Authorize & Execute Action"**. The invoice is issued with ID `INV-2026-0004`.
 
-### Step 3: Official PayPal Sandbox Checkout & Reconciliation (1:15 – 2:00)
+### Step 3: Official PayPal Sandbox Checkout & Reconciliation (1:15 - 2:00)
 - **Speaker:** *"Now let's collect payment through PayPal."*
 - **Action:** Go to **Invoices**. Locate `INV-2026-0004` and click **"Pay via PayPal"**.
 - **Action:** Click **"Create PayPal Sandbox Order"**, then click **"Simulate Client Approval & Capture Funds"**.
 - **Speaker:** *"The order is captured via PayPal Orders API. The invoice is reconciled to PAID, the ledger is credited, and an automated workflow event fires."*
 
-### Step 4: Gated Contractor Payout & Duplicate Prevention (2:00 – 2:40)
+### Step 4: Gated Contractor Payout & Duplicate Prevention (2:00 - 2:40)
 - **Speaker:** *"Now let's disburse funds to a contractor."*
 - **Action:** In **AI Agent**, type: `"Prepare a $120 contractor payout for the approved design task"`.
 - **Speaker:** *"Because the payout exceeds our $100 safety limit, human approval is strictly mandated. Let's authorize it."*
 - **Action:** Click **"Authorize & Execute Action"**. Go to **Contractor Payouts**, click **"Approve"**, then **"Disburse Funds"**. Funds are dispatched via PayPal Payouts API.
 
-### Step 5: Grounded Copilot & Audit Trail (2:40 – 3:00)
+### Step 5: Grounded Copilot & Audit Trail (2:40 - 3:00)
 - **Speaker:** *"Finally, let's ask the AI for overdue receivables."*
 - **Action:** In **AI Agent**, click: `"Show my overdue invoices"`.
 - **Speaker:** *"Notice the AI answers with exact amounts and invoice numbers matching our SQLite database with zero hallucination. In the Insights & Audit tab, judges can inspect the immutable audit log for every single action taken today."*

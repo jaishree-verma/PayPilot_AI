@@ -9,17 +9,27 @@ import {
   RefreshCw,
   Search,
   X,
+  Eye,
 } from "lucide-react";
 import { api, InvoiceItem, formatCodeClean } from "../api";
 import { PayPalCheckoutModal } from "../components/PayPalCheckoutModal";
+import { InvoiceDetailModal } from "../components/InvoiceDetailModal";
+import { SkeletonTable } from "../components/common/SkeletonTable";
+import { EmptyState } from "../components/common/EmptyState";
+import { useDebounce } from "../hooks/useDebounce";
+import { useToast } from "../context/ToastContext";
 
 export const InvoicesPage: React.FC = () => {
+  const { showToast } = useToast();
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [filter, setFilter] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedInvoiceForCheckout, setSelectedInvoiceForCheckout] = useState<InvoiceItem | null>(null);
+  const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState<InvoiceItem | null>(null);
 
   // Form State
   const [formRecipientName, setFormRecipientName] = useState("");
@@ -36,8 +46,9 @@ export const InvoicesPage: React.FC = () => {
       const statusParam = filter === "ALL" ? undefined : filter;
       const data = await api.getInvoices(statusParam);
       setInvoices(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      showToast("Failed to load invoices", "error");
     } finally {
       setLoading(false);
     }
@@ -56,13 +67,14 @@ export const InvoicesPage: React.FC = () => {
     setCreating(true);
     setErrorMsg("");
     try {
-      await api.createInvoice({
-        recipient_name: formRecipientName,
-        recipient_email: formRecipientEmail,
+      const newInv = await api.createInvoice({
+        recipient_name: formRecipientName.trim(),
+        recipient_email: formRecipientEmail.trim(),
         amount: Number(formAmount),
         currency: formCurrency,
-        description: formDescription,
+        description: formDescription.trim(),
       });
+      showToast(`Invoice ${newInv.invoice_number} created`, "success");
       setIsCreateOpen(false);
       setFormRecipientName("");
       setFormRecipientEmail("");
@@ -78,9 +90,9 @@ export const InvoicesPage: React.FC = () => {
 
   const filteredInvoices = invoices.filter(
     (inv) =>
-      inv.recipient_name.toLowerCase().includes(search.toLowerCase()) ||
-      inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
-      inv.description.toLowerCase().includes(search.toLowerCase())
+      inv.recipient_name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      inv.invoice_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      inv.description.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   return (
@@ -131,7 +143,7 @@ export const InvoicesPage: React.FC = () => {
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by client, number, or description..."
+            placeholder="Search by client, number, or deliverable..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 text-xs placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 w-full sm:w-72 shadow-2xs transition"
@@ -142,23 +154,46 @@ export const InvoicesPage: React.FC = () => {
       {/* Clean White Invoices Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] bg-slate-50/70">
-                <th className="py-3.5 px-4 font-semibold">Invoice ID</th>
-                <th className="py-3.5 px-4 font-semibold">Client / Recipient</th>
-                <th className="py-3.5 px-4 font-semibold">Description</th>
-                <th className="py-3.5 px-4 font-semibold">Amount</th>
-                <th className="py-3.5 px-4 font-semibold">Due Date</th>
-                <th className="py-3.5 px-4 font-semibold">Status</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredInvoices.length > 0 ? (
-                filteredInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-4 px-4 font-mono font-bold text-blue-600">{formatCodeClean(inv.invoice_number)}</td>
+          {loading ? (
+            <SkeletonTable columns={7} rows={4} />
+          ) : filteredInvoices.length === 0 ? (
+            <EmptyState
+              title={search ? "No matching invoices found" : "No invoices found"}
+              description={
+                search
+                  ? `No invoices matched query "${search}". Try a different keyword.`
+                  : 'Click "Create Invoice" to issue a new bill.'
+              }
+              icon={<FileText className="w-8 h-8" />}
+              action={
+                search
+                  ? { label: "Clear search", onClick: () => setSearch("") }
+                  : { label: "Create Invoice", onClick: () => setIsCreateOpen(true) }
+              }
+            />
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] bg-slate-50/70">
+                  <th className="py-3.5 px-4 font-semibold">Invoice ID</th>
+                  <th className="py-3.5 px-4 font-semibold">Client / Recipient</th>
+                  <th className="py-3.5 px-4 font-semibold">Description</th>
+                  <th className="py-3.5 px-4 font-semibold">Amount</th>
+                  <th className="py-3.5 px-4 font-semibold">Due Date</th>
+                  <th className="py-3.5 px-4 font-semibold">Status</th>
+                  <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredInvoices.map((inv) => (
+                  <tr
+                    key={inv.id}
+                    className="hover:bg-slate-50/70 transition cursor-pointer"
+                    onClick={() => setSelectedInvoiceForDetail(inv)}
+                  >
+                    <td className="py-4 px-4 font-mono font-bold text-blue-600">
+                      {formatCodeClean(inv.invoice_number)}
+                    </td>
                     <td className="py-4 px-4">
                       <div className="font-semibold text-slate-900">{inv.recipient_name}</div>
                       <div className="text-[11px] text-slate-500 font-mono">{inv.recipient_email}</div>
@@ -168,7 +203,11 @@ export const InvoicesPage: React.FC = () => {
                       ${inv.amount.toFixed(2)} {inv.currency}
                     </td>
                     <td className="py-4 px-4 text-slate-500">
-                      {new Date(inv.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {new Date(inv.due_date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
                     </td>
                     <td className="py-4 px-4">
                       <span
@@ -183,33 +222,36 @@ export const InvoicesPage: React.FC = () => {
                         {inv.status}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-right">
-                      {inv.status !== "PAID" ? (
+                    <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end space-x-2">
                         <button
-                          onClick={() => setSelectedInvoiceForCheckout(inv)}
-                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-2xs transition cursor-pointer"
+                          onClick={() => setSelectedInvoiceForDetail(inv)}
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition"
+                          title="View Invoice & Receipt"
                         >
-                          <CreditCard className="w-3.5 h-3.5" />
-                          <span>Pay via PayPal</span>
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
-                      ) : (
-                        <span className="text-[11px] font-mono text-emerald-600 font-semibold flex items-center justify-end space-x-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Reconciled</span>
-                        </span>
-                      )}
+                        {inv.status !== "PAID" ? (
+                          <button
+                            onClick={() => setSelectedInvoiceForCheckout(inv)}
+                            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-2xs transition cursor-pointer"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Pay via PayPal</span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-mono text-emerald-600 font-semibold flex items-center justify-end space-x-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Reconciled</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    No invoices found. Click "Create Invoice" to issue a new bill.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -304,6 +346,21 @@ export const InvoicesPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Invoice Detail / Receipt Modal */}
+      <InvoiceDetailModal
+        invoice={selectedInvoiceForDetail}
+        isOpen={Boolean(selectedInvoiceForDetail)}
+        onClose={() => setSelectedInvoiceForDetail(null)}
+        onPayNow={(inv) => {
+          setSelectedInvoiceForDetail(null);
+          setSelectedInvoiceForCheckout(inv);
+        }}
+        onInvoiceDeleted={() => {
+          setSelectedInvoiceForDetail(null);
+          fetchInvoices();
+        }}
+      />
 
       {/* PayPal Checkout Modal */}
       <PayPalCheckoutModal

@@ -10,7 +10,7 @@
 
 ---
 
-## 📚 Complete Documentation Suite
+## Complete Documentation Suite
 
 For comprehensive technical, architectural, and evaluation details, consult our complete documentation suite:
 
@@ -23,7 +23,7 @@ For comprehensive technical, architectural, and evaluation details, consult our 
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```mermaid
 graph TB

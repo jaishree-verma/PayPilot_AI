@@ -10,6 +10,18 @@
 
 PayPilot AI is an autonomous financial operations copilot built for small businesses, agencies, and operators. It transforms natural language instructions into structured, policy-validated payment workflows executed over official PayPal Sandbox REST APIs. Every action is recorded in an audit log and synchronized with a double-entry ledger.
 
+<div align="center">
+
+### Watch Demo Video
+
+[![PayPilot AI Demo Video](https://img.youtube.com/vi/qQSeYp4fPis/hqdefault.jpg)](https://youtu.be/qQSeYp4fPis)
+
+[![Watch on YouTube](https://img.shields.io/badge/Watch%20Demo%20on%20YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/qQSeYp4fPis)
+
+[https://youtu.be/qQSeYp4fPis](https://youtu.be/qQSeYp4fPis)
+
+</div>
+
 ---
 
 ## 1. Problem Statement
